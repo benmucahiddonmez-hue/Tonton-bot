@@ -58,7 +58,7 @@ async def fiyat_komutu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
   # 'TELEGRAM_BOT_TOKEN' yazan yere BotFather'dan aldığınız token'ı tırnak içinde yazın
-  app = ApplicationBuilder().token("TELEGRAM_BOT_TOKEN").build()
+  app = ApplicationBuilder().token("8834429728:AAEUxQQGpda4GLlTBgJJVi2G9XkXUCEi-og").build()
 
   app.add_handler(CommandHandler("fiyat", fiyat_komutu))
 
