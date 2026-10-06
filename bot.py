@@ -27,35 +27,40 @@ def webhook():
         query = parts[1].lower()
 
         try:
-          ston_api_url = "https://api.ston.fi/v1/assets"
-          res = requests.get(ston_api_url).json()
+          # Ston.fi V1 Pools veya Assets uç noktasından detaylı arama
+          url = "https://api.ston.fi/v1/assets"
+          res = requests.get(url).json()
 
           found = False
           if "assets" in res:
             for asset in res["assets"]:
-              if asset.get("symbol", "").lower() == query:
-                usd_price = asset.get("dex_usd_price")
-                if usd_price:
-                  msg = f"💎 {query.upper()} (Ston.fi) Fiyatı: ${usd_price}"
+              symbol = asset.get("symbol", "").lower()
+              name = asset.get("display_name", "").lower()
+
+              if query == symbol or query in name:
+                # Fiyat alanını kontrol ediyoruz (bazı varlıklarda usd_price veya dex_usd_price geçerlidir)
+                price = asset.get("dex_usd_price") or asset.get("usd_price")
+
+                if price and float(price) > 0:
+                  msg = f"💎 {asset.get('symbol').upper()} (Ston.fi) Fiyatı: ${price}"
                 else:
-                  msg = f"'{query}' bulundu ancak fiyat verisi henüz yok."
+                  msg = f"'{asset.get('symbol').upper}' bulundu ancak aktif bir USD fiyat havuzu görünmüyor."
                 found = True
                 break
 
           if not found:
+            # Ston.fi'da bulunamazsa CoinGecko yedek araması
             coin_map = {"btc": "bitcoin", "eth": "ethereum", "ton": "the-open-network"}
-            coin_id = coin_map.get(query)
+            coin_id = coin_map.get(query, query)
 
-            if coin_id:
-              cg_url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
-              cg_res = requests.get(cg_url).json()
-              if coin_id in cg_res:
-                price = cg_res[coin_id]["usd"]
-                msg = f"💎 {query.upper()} (CoinGecko) Fiyatı: ${price}"
-              else:
-                msg = f"'{query}' için fiyat bilgisi bulunamadı."
+            cg_url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
+            cg_res = requests.get(cg_url).json()
+
+            if coin_id in cg_res and "usd" in cg_res[coin_id]:
+              price = cg_res[coin_id]["usd"]
+              msg = f"💎 {query.upper()} (CoinGecko) Fiyatı: ${price}"
             else:
-              msg = f"'{query}' coini Ston.fi veya CoinGecko listesinde bulunamadı."
+              msg = f"'{query}' coini Ston.fi veya CoinGecko sisteminde bulunamadı."
 
         except Exception as e:
           msg = f"Fiyat çekilirken hata oluştu: {e}"
@@ -73,14 +78,12 @@ def webhook():
 
 
 def set_webhook():
-  # Render'daki canlı URL'nizi buraya yazın (Örn: https://tonton-bot-sou3.onrender.com)
-  # Render proje adınıza göre URL'yi aşağıdaki boşluğa ekleyin:
   RENDER_URL = "https://tonton-bot-sou3.onrender.com"
   webhook_url = f"{TELEGRAM_API_URL}/setWebhook?url={RENDER_URL}/{TOKEN}"
   requests.get(webhook_url)
 
 
 if __name__ == "__main__":
-  set_webhook()  # Bot başlarken webhook'u otomatik Telegram'a bildirir
+  set_webhook()
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
