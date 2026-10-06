@@ -1,5 +1,5 @@
+import asyncio
 import os
-import threading
 from flask import Flask
 import requests
 from telegram import Update
@@ -39,12 +39,14 @@ async def veri_cek(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def run_telegram_bot():
   TOKEN = os.getenv("TELEGRAM_TOKEN")
   if not TOKEN:
-    print("Hata: TELEGRAM_TOKEN bulunamadي!")
+    print("Hata: TELEGRAM_TOKEN bulunamadı!")
     return
 
-  # Telegram Bot Yapılandırması
-  application = Application.builder().token(TOKEN).build()
+  # Yeni bir event loop oluşturarak botu güvenli bir şekilde başlatıyoruz
+  loop = asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
 
+  application = Application.builder().token(TOKEN).build()
   application.add_handler(CommandHandler("start", start))
   application.add_handler(CommandHandler("veri", veri_cek))
 
@@ -53,11 +55,13 @@ def run_telegram_bot():
 
 
 if __name__ == "__main__":
-  # 1. Telegram botunu arka planda (Thread içinde) çalıştırıyoruz
+  import threading
+
+  # 1. Telegram botunu arka planda thread ile çalıştırıyoruz
   bot_thread = threading.Thread(target=run_telegram_bot)
   bot_thread.daemon = True
   bot_thread.start()
 
-  # 2. Flask sunucusunu ana akışta çalıştırıyoruz (Render portu hemen yakalasın diye)
+  # 2. Flask sunucusunu ana akışta çalıştırıyoruz
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
