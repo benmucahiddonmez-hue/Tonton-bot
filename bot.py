@@ -1,10 +1,9 @@
 import os
+import threading
 from flask import Flask
-import requests
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+# ... (telegram ve diğer importlarınız)
 
-# 1. Flask Uygulaması (Render'ın port isteğini karşılamak ve botu canlı tutmak için)
+# Flask uygulaması
 app = Flask(__name__)
 
 
@@ -13,50 +12,35 @@ def home():
   return "Bot aktif ve çalışıyor!"
 
 
-# 2. Telegram Komut Fonksiyonları
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  """/start komutu çalıştığında tetiklenir."""
-  await update.message.reply_text(
-      "Merhaba! Bot güncellendi ve başarıyla çalışıyor."
-  )
-
-
-async def veri_cek(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  """Requests kütüphanesini kullanarak dış kaynaklı veri çeken örnek komut."""
-  try:
-    # Örnek bir API isteği (kendi API adresinizle değiştirebilirsiniz)
-    response = requests.get("https://api.github.com")
-    data = response.json()
-    await update.message.reply_text(f"API Bağlantısı başarılı! Durum: Online")
-  except Exception as e:
-    await update.message.reply_text(f"Veri çekilirken bir hata oluştu: {e}")
+def run_flask():
+  # Render'ın atadığı portu alıyoruz (varsayılan 5000)
+  port = int(os.environ.get("PORT", 5000))
+  # 0.0.0.0 adresi dış erişime açmak için zorunludur
+  app.run(host="0.0.0.0", port=port)
 
 
 def main():
-  # Çevre değişkenlerinden (Environment Variables) Telegram Token'ını alıyoruz
-  TOKEN = os.getenv("8834429728:AAEUxQQGpda4GLlTBgJJVi2G9XkXUCEi-og")
-
+  TOKEN = os.getenv("TELEGRAM_TOKEN")
   if not TOKEN:
     print("Hata: TELEGRAM_TOKEN bulunamadı!")
     return
 
-  # python-telegram-bot v20+ yapısı
+  # Telegram Bot yapılandırması
   application = Application.builder().token(TOKEN).build()
 
-  # Komut yönlendiricileri (Handlers)
-  application.add_handler(CommandHandler("start", start))
-  application.add_handler(CommandHandler("veri", veri_cek))
+  # Komutlarınız buraya eklenecek
+  # application.add_handler(...)
 
-  # Botu başlatma (Polling yöntemi)
-  print("Bot başlatılıyor...")
+  # 1. Önce Flask'ı arka planda (ayrı bir thread'de) başlatıyoruz ki Render portu açık bulsun
+  flask_thread = threading.Thread(target=run_flask)
+  flask_thread.daemon = True
+  flask_thread.start()
+  print("Flask web sunucusu arka planda başlatıldı.")
+
+  # 2. Sonra Telegram botunu polling ile başlatıyoruz
+  print("Telegram bot polling ile başlatılıyor...")
   application.run_polling()
 
 
 if __name__ == "__main__":
-  # Render gibi platformlar için PORT değişkenini dinamik alıyoruz
-  port = int(os.environ.get("PORT", 5000))
-
-  # Not: Render üzerinde Flask ve Bot polling'i aynı anda çalıştırmak için
-  # webhook kullanmak veya botu ayrı bir thread'de çalıştırmak gerekebilir.
-  # Eğer sadece basit bir health-check web sunucusu tutacaksanız Flask'ı
-  # arka planda (threading) başlatmanız gerekebilir.
+  main()
