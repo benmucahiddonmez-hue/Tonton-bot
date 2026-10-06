@@ -37,16 +37,41 @@ async def veri_cek(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def fiyat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  """Ston.fi veya genel kripto fiyatlarını çekmek için komut."""
-  try:
-    # Örnek olarak Toncoin veya Ston.fi api entegrasyonu yapılabilir
-    response = requests.get(
-        "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd"
+  """Kullanıcının yazdığı coine göre dinamik fiyat çeker (Örn: /fiyat btc)."""
+  if not context.args:
+    await update.message.reply_text(
+        "Lütfen bir coin adı belirtin. Örnek: `/fiyat btc`, `/fiyat ton` veya"
+        " `/fiyat ston`",
+        parse_mode="Markdown",
     )
+    return
+
+  query = context.args[0].lower()
+
+  # Coin kısaltmalarını CoinGecko ID'lerine eşleştiriyoruz
+  coin_map = {
+      "btc": "bitcoin",
+      "eth": "ethereum",
+      "ton": "the-open-network",
+      "ston": "ston",
+  }
+
+  coin_id = coin_map.get(query, query)
+
+  try:
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd"
+    response = requests.get(url)
     if response.status_code == 200:
       data = response.json()
-      ton_price = data.get("the-open-network", {}).get("usd", "Bilinmiyor")
-      await update.message.reply_text(f"💎 Güncel TON Fiyatı: ${ton_price}")
+      if coin_id in data and "usd" in data[coin_id]:
+        price = data[coin_id]["usd"]
+        await update.message.reply_text(
+            f"💎 {query.upper()} Fiyatı: ${price}"
+        )
+      else:
+        await update.message.reply_text(
+            f"'{query}' için CoinGecko üzerinde fiyat bulunamadı."
+        )
     else:
       await update.message.reply_text("Fiyat bilgisi şu an alınamadı.")
   except Exception as e:
@@ -73,7 +98,7 @@ def main():
   application = Application.builder().token(TOKEN).build()
   application.add_handler(CommandHandler("start", start))
   application.add_handler(CommandHandler("veri", veri_cek))
-  application.add_handler(CommandHandler("fiyat", fiyat))  # /fiyat eklendi
+  application.add_handler(CommandHandler("fiyat", fiyat))
 
   print("Telegram bot polling ile ana thread'de başlatılıyor...")
   application.run_polling()
