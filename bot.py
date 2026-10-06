@@ -27,16 +27,13 @@ def webhook():
         query = parts[1].lower()
 
         try:
-          # Ston.fi V1/V2 API üzerinden token arama ve fiyat çekme
           ston_api_url = "https://api.ston.fi/v1/assets"
           res = requests.get(ston_api_url).json()
 
           found = False
           if "assets" in res:
             for asset in res["assets"]:
-              # Sembol eşleşmesi kontrolü (Örn: TON, STON, vs.)
               if asset.get("symbol", "").lower() == query:
-                # DEX üzerindeki fiyat bilgisi USD cinsinden
                 usd_price = asset.get("dex_usd_price")
                 if usd_price:
                   msg = f"💎 {query.upper()} (Ston.fi) Fiyatı: ${usd_price}"
@@ -46,7 +43,6 @@ def webhook():
                 break
 
           if not found:
-            # Eğer Ston.fi'da bulunamazsa CoinGecko ile BTC/TON gibi büyükleri yedek olarak sorgula
             coin_map = {"btc": "bitcoin", "eth": "ethereum", "ton": "the-open-network"}
             coin_id = coin_map.get(query)
 
@@ -76,6 +72,15 @@ def webhook():
   return "OK", 200
 
 
+def set_webhook():
+  # Render'daki canlı URL'nizi buraya yazın (Örn: https://tonton-bot-sou3.onrender.com)
+  # Render proje adınıza göre URL'yi aşağıdaki boşluğa ekleyin:
+  RENDER_URL = "https://tonton-bot-sou3.onrender.com"
+  webhook_url = f"{TELEGRAM_API_URL}/setWebhook?url={RENDER_URL}/{TOKEN}"
+  requests.get(webhook_url)
+
+
 if __name__ == "__main__":
+  set_webhook()  # Bot başlarken webhook'u otomatik Telegram'a bildirir
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
